@@ -1,0 +1,143 @@
+/* Global Styles - Black White Gray Theme */
+:root {
+  --color-black: #000000;
+  --color-dark-gray: #333333;
+  --color-medium-gray: #666666;
+  --color-light-gray: #999999;
+  --color-lighter-gray: #E5E5E5;
+  --color-white: #FFFFFF;
+  --color-bg: #FAFAFA;
+
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  --radius-card: 8px;
+  --radius-button: 4px;
+
+  --font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-bg);
+  color: var(--color-dark-gray);
+  line-height: 1.6;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: var(--color-dark-gray);
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-medium-gray);
+  outline-offset: 2px;
+}
+
+/* Inputs */
+input, textarea {
+  font-family: inherit;
+  border: 1px solid var(--color-lighter-gray);
+  border-radius: var(--radius-button);
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-medium-gray);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-lighter-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-light-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-medium-gray);
+}
+
+/* Utility classes */
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-button);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--color-dark-gray);
+  color: var(--color-white);
+}
+
+.btn-primary:hover {
+  background: var(--color-black);
+}
+
+.btn-secondary {
+  background: var(--color-white);
+  color: var(--color-dark-gray);
+  border: 1px solid var(--color-lighter-gray);
+}
+
+.btn-secondary:hover {
+  background: var(--color-lighter-gray);
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--color-white);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hover);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
