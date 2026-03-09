@@ -26,8 +26,8 @@ async function initDatabase() {
     password: dbConfig.password
   });
 
-  await connection.execute(`CREATE DATABASE IF NOT EXISTS ${dbConfig.database}`);
-  await connection.execute(`USE ${dbConfig.database}`);
+  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+  await connection.query(`USE \`${dbConfig.database}\``);
 
   // Create libraries table
   await connection.execute(`
