@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm create vite@latest . -- --template react-ts)",
       "Bash(npm install)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://linkliketo.cn/api/libraries\")"
     ]
   }
 }
