@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m \"Initial commit: 碎片知识笔记应用\")"
+    ]
+  }
+}

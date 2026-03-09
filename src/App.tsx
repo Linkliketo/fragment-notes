@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
+import * as api from './api'
 
 // Types
 interface Library {
@@ -25,13 +26,6 @@ interface Note {
 }
 
 type SortMode = 'chaos' | 'axis'
-
-// Generate UUID
-const generateId = () => crypto.randomUUID()
-
-// Storage keys
-const LIBRARIES_KEY = 'fragment-notes-libraries'
-const NOTES_KEY = 'fragment-notes-notes'
 
 // App Component
 export default function App() {
@@ -66,28 +60,25 @@ export default function App() {
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 })
   const [spacePressed, setSpacePressed] = useState(false)
 
-  // Load data from localStorage
+  // Load libraries from cloud
   useEffect(() => {
-    const storedLibraries = localStorage.getItem(LIBRARIES_KEY)
-    const storedNotes = localStorage.getItem(NOTES_KEY)
-
-    if (storedLibraries) {
-      setLibraries(JSON.parse(storedLibraries))
-    }
-
-    if (storedNotes) {
-      setNotes(JSON.parse(storedNotes))
-    }
+    api.fetchLibraries().then(data => {
+      setLibraries(data)
+    }).catch(err => {
+      console.error('Failed to load libraries:', err)
+    })
   }, [])
 
-  // Save data to localStorage
+  // Load notes when library changes
   useEffect(() => {
-    localStorage.setItem(LIBRARIES_KEY, JSON.stringify(libraries))
-  }, [libraries])
-
-  useEffect(() => {
-    localStorage.setItem(NOTES_KEY, JSON.stringify(notes))
-  }, [notes])
+    if (currentLibraryId) {
+      api.fetchNotes(currentLibraryId).then(data => {
+        setNotes(data)
+      }).catch(err => {
+        console.error('Failed to load notes:', err)
+      })
+    }
+  }, [currentLibraryId])
 
   // Get current library
   const currentLibrary = libraries.find(l => l.id === currentLibraryId)
@@ -98,37 +89,42 @@ export default function App() {
     .sort((a, b) => a.order - b.order)
 
   // Create library
-  const handleCreateLibrary = useCallback(() => {
+  const handleCreateLibrary = useCallback(async () => {
     if (!newLibraryName.trim()) return
 
-    const newLibrary: Library = {
-      id: generateId(),
-      name: newLibraryName.trim(),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+    try {
+      const newLibrary = await api.createLibrary(newLibraryName.trim())
+      setLibraries(prev => [...prev, newLibrary])
+      setCurrentLibraryId(newLibrary.id)
+      setNewLibraryName('')
+      setIsCreatingLibrary(false)
+      setIsLibraryMenuOpen(false)
+    } catch (err) {
+      console.error('Failed to create library:', err)
+      alert('创建失败，请重试')
     }
-
-    setLibraries(prev => [...prev, newLibrary])
-    setCurrentLibraryId(newLibrary.id)
-    setNewLibraryName('')
-    setIsCreatingLibrary(false)
-    setIsLibraryMenuOpen(false)
   }, [newLibraryName])
 
   // Delete library
-  const handleDeleteLibrary = useCallback((id: string) => {
+  const handleDeleteLibrary = useCallback(async (id: string) => {
     if (!confirm('确定要删除这个库吗？库中的所有笔记将被删除。')) return
 
-    setLibraries(prev => prev.filter(l => l.id !== id))
-    setNotes(prev => prev.filter(n => n.libraryId !== id))
+    try {
+      await api.deleteLibrary(id)
+      setLibraries(prev => prev.filter(l => l.id !== id))
+      setNotes(prev => prev.filter(n => n.libraryId !== id))
 
-    if (currentLibraryId === id) {
-      setCurrentLibraryId(null)
+      if (currentLibraryId === id) {
+        setCurrentLibraryId(null)
+      }
+    } catch (err) {
+      console.error('Failed to delete library:', err)
+      alert('删除失败，请重试')
     }
   }, [currentLibraryId])
 
   // Create note
-  const handleCreateNote = useCallback(() => {
+  const handleCreateNote = useCallback(async () => {
     if (!currentLibraryId) return
 
     // Calculate center of current view
@@ -145,43 +141,66 @@ export default function App() {
       centerY = (rect.height / 2 - canvasOffset.y) / canvasScale - 90 // 90 is half of card height
     }
 
-    const newNote: Note = {
-      id: generateId(),
-      libraryId: currentLibraryId,
-      title: '无标题',
-      content: '',
-      order: currentNotes.length,
-      positionX: centerX,
-      positionY: centerY,
-      rotation: 0,
-      zIndex: nextZIndex,
-      sizeMultiplier: 1,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }
-    setNextZIndex(prev => prev + 1)
+    try {
+      const newNote = await api.createNote({
+        libraryId: currentLibraryId,
+        title: '无标题',
+        content: '',
+        order: currentNotes.length,
+        positionX: centerX,
+        positionY: centerY,
+        rotation: 0,
+        zIndex: nextZIndex,
+        sizeMultiplier: 1
+      })
+      setNextZIndex(prev => prev + 1)
 
-    setNotes(prev => [...prev, newNote])
-    setEditingNote(newNote)
-    setIsEditorOpen(true)
+      setNotes(prev => [...prev, newNote])
+      setEditingNote(newNote)
+      setIsEditorOpen(true)
+    } catch (err) {
+      console.error('Failed to create note:', err)
+      alert('创建失败，请重试')
+    }
   }, [currentLibraryId, currentNotes.length, canvasOffset, canvasScale])
 
   // Update note
-  const handleUpdateNote = useCallback((updatedNote: Note) => {
-    setNotes(prev => prev.map(n =>
-      n.id === updatedNote.id
-        ? { ...updatedNote, updatedAt: Date.now() }
-        : n
-    ))
+  const handleUpdateNote = useCallback(async (updatedNote: Note) => {
+    try {
+      await api.updateNote(updatedNote.id, {
+        title: updatedNote.title,
+        content: updatedNote.content,
+        order: updatedNote.order,
+        positionX: updatedNote.positionX,
+        positionY: updatedNote.positionY,
+        rotation: updatedNote.rotation,
+        zIndex: updatedNote.zIndex,
+        sizeMultiplier: updatedNote.sizeMultiplier
+      })
+      setNotes(prev => prev.map(n =>
+        n.id === updatedNote.id
+          ? { ...updatedNote, updatedAt: Date.now() }
+          : n
+      ))
+    } catch (err) {
+      console.error('Failed to update note:', err)
+      alert('保存失败，请重试')
+    }
   }, [])
 
   // Delete note
-  const handleDeleteNote = useCallback((id: string) => {
+  const handleDeleteNote = useCallback(async (id: string) => {
     if (!confirm('确定要删除这篇笔记吗？')) return
 
-    setNotes(prev => prev.filter(n => n.id !== id))
-    setIsEditorOpen(false)
-    setEditingNote(null)
+    try {
+      await api.deleteNote(id)
+      setNotes(prev => prev.filter(n => n.id !== id))
+      setIsEditorOpen(false)
+      setEditingNote(null)
+    } catch (err) {
+      console.error('Failed to delete note:', err)
+      alert('删除失败，请重试')
+    }
   }, [])
 
   // Mouse drag handlers for chaos mode
@@ -244,11 +263,32 @@ export default function App() {
     })
   }, [draggedNote, sortMode, dragOffset, dragStartPos, canvasOffset, canvasScale, mouseDownTime, isDragging])
 
+  // Sync note position to cloud (debounced)
+  const syncNotePosition = useCallback(async (note: Note) => {
+    try {
+      await api.updateNote(note.id, {
+        positionX: note.positionX,
+        positionY: note.positionY,
+        zIndex: note.zIndex,
+        sizeMultiplier: note.sizeMultiplier
+      })
+    } catch (err) {
+      console.error('Failed to sync note position:', err)
+    }
+  }, [])
+
   const handleMouseUp = useCallback(() => {
+    if (draggedNote) {
+      // Sync final position to cloud
+      const note = notes.find(n => n.id === draggedNote.id)
+      if (note) {
+        syncNotePosition(note)
+      }
+    }
     setDraggedNote(null)
     setIsPanning(false)
     setIsDragging(false)
-  }, [])
+  }, [draggedNote, notes, syncNotePosition])
 
   // Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent, note: Note) => {
@@ -261,15 +301,25 @@ export default function App() {
     setContextMenu({ x: 0, y: 0, noteId: null })
   }, [])
 
-  const handleSizeChange = useCallback((multiplier: number) => {
+  const handleSizeChange = useCallback(async (multiplier: number) => {
     if (!contextMenu.noteId) return
+    const note = notes.find(n => n.id === contextMenu.noteId)
+    if (!note) return
+
+    const updatedNote = { ...note, sizeMultiplier: multiplier, updatedAt: Date.now() }
     setNotes(prev => prev.map(n =>
-      n.id === contextMenu.noteId
-        ? { ...n, sizeMultiplier: multiplier, updatedAt: Date.now() }
-        : n
+      n.id === contextMenu.noteId ? updatedNote : n
     ))
+
+    // Sync to cloud
+    try {
+      await api.updateNote(note.id, { sizeMultiplier: multiplier })
+    } catch (err) {
+      console.error('Failed to update note size:', err)
+    }
+
     handleCloseContextMenu()
-  }, [contextMenu.noteId, handleCloseContextMenu])
+  }, [contextMenu.noteId, notes, handleCloseContextMenu])
 
   // Canvas pan handlers (space + left click or middle mouse button)
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
@@ -352,7 +402,7 @@ export default function App() {
     e.preventDefault()
   }, [])
 
-  const handleAxisDrop = useCallback((e: React.DragEvent, targetNote: Note) => {
+  const handleAxisDrop = useCallback(async (e: React.DragEvent, targetNote: Note) => {
     e.preventDefault()
     const draggedId = e.dataTransfer.getData('text/plain')
 
@@ -379,6 +429,15 @@ export default function App() {
       }
       return n
     }))
+
+    // Sync order to cloud
+    try {
+      for (const note of newNotes) {
+        await api.updateNote(note.id, { order: note.order })
+      }
+    } catch (err) {
+      console.error('Failed to sync note order:', err)
+    }
   }, [notes, currentLibraryId, currentNotes])
 
   // Render content preview
