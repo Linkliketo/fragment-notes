@@ -224,8 +224,13 @@ app.delete('/api/notes/:id', async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, async () => {
-  await initDatabase();
-  console.log(`Server running on port ${PORT}`);
-});
+// For Vercel serverless
+module.exports = app;
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, async () => {
+    await initDatabase();
+    console.log(`Server running on port ${PORT}`);
+  });
+}
