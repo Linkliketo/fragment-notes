@@ -29,6 +29,17 @@ type SortMode = 'chaos' | 'axis'
 
 // App Component
 export default function App() {
+  // User state
+  const [user, setUser] = useState<api.User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Auth forms
+  const [isLoginView, setIsLoginView] = useState(true)
+  const [authUsername, setAuthUsername] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authError, setAuthError] = useState('')
+
   // State
   const [libraries, setLibraries] = useState<Library[]>([])
   const [notes, setNotes] = useState<Note[]>([])
@@ -60,14 +71,55 @@ export default function App() {
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 })
   const [spacePressed, setSpacePressed] = useState(false)
 
-  // Load libraries from cloud
+  // Check auth and load libraries
   useEffect(() => {
-    api.fetchLibraries().then(data => {
-      setLibraries(data)
-    }).catch(err => {
-      console.error('Failed to load libraries:', err)
+    api.getCurrentUser().then(u => {
+      setUser(u)
+      setIsLoading(false)
+      if (u) {
+        api.fetchLibraries().then(data => {
+          setLibraries(data)
+        })
+      }
     })
   }, [])
+
+  // Login handler
+  const handleLogin = async () => {
+    setAuthError('')
+    try {
+      const { user } = await api.login(authUsername, authPassword)
+      setUser(user)
+      api.fetchLibraries().then(data => setLibraries(data))
+      setAuthUsername('')
+      setAuthPassword('')
+    } catch (err: any) {
+      setAuthError(err.message)
+    }
+  }
+
+  // Register handler
+  const handleRegister = async () => {
+    setAuthError('')
+    try {
+      const { user } = await api.register(authUsername, authPassword, authEmail || undefined)
+      setUser(user)
+      setAuthUsername('')
+      setAuthPassword('')
+      setAuthEmail('')
+    } catch (err: any) {
+      setAuthError(err.message)
+    }
+  }
+
+  // Logout handler
+  const handleLogout = async () => {
+    await api.logout()
+    setUser(null)
+    setLibraries([])
+    setNotes([])
+    setCurrentLibraryId(null)
+  }
 
   // Load notes when library changes
   useEffect(() => {
@@ -232,10 +284,20 @@ export default function App() {
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!draggedNote || sortMode !== 'chaos' || !canvasRef.current) return
 
-    // Check if long press (>200ms) to start dragging
+    // Check press duration and move distance to determine drag vs click
     const pressDuration = Date.now() - mouseDownTime
-    if (pressDuration >= 200 && !isDragging) {
-      setIsDragging(true)
+    const moveDistance = Math.sqrt(
+      Math.pow(e.clientX - dragStartPos.x, 2) +
+      Math.pow(e.clientY - dragStartPos.y, 2)
+    )
+
+    // Start dragging if:
+    // - Press duration >= 200ms (long press), OR
+    // - Move distance >= 10px (noticeable movement)
+    if (!isDragging) {
+      if (pressDuration >= 200 || moveDistance >= 10) {
+        setIsDragging(true)
+      }
     }
 
     // Only move card if dragging (not just pressing)
@@ -462,6 +524,94 @@ export default function App() {
     }
   }
 
+  // Show loading
+  if (isLoading) {
+    return (
+      <div className="app">
+        <div className="auth-container">
+          <div className="auth-box">
+            <h1>加载中...</h1>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login/register if not logged in
+  if (!user) {
+    return (
+      <div className="app">
+        <div className="auth-container">
+          <div className="auth-box">
+            <h1>碎片笔记</h1>
+            <p className="auth-subtitle">登录以开始整理你的知识</p>
+
+            {authError && <div className="auth-error">{authError}</div>}
+
+            <div className="auth-tabs">
+              <button
+                className={`auth-tab ${isLoginView ? 'active' : ''}`}
+                onClick={() => setIsLoginView(true)}
+              >
+                登录
+              </button>
+              <button
+                className={`auth-tab ${!isLoginView ? 'active' : ''}`}
+                onClick={() => setIsLoginView(false)}
+              >
+                注册
+              </button>
+            </div>
+
+            {isLoginView ? (
+              <div className="auth-form">
+                <input
+                  type="text"
+                  placeholder="用户名"
+                  value={authUsername}
+                  onChange={e => setAuthUsername(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="密码"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                />
+                <button className="btn btn-primary" onClick={handleLogin}>
+                  登录
+                </button>
+              </div>
+            ) : (
+              <div className="auth-form">
+                <input
+                  type="text"
+                  placeholder="用户名"
+                  value={authUsername}
+                  onChange={e => setAuthUsername(e.target.value)}
+                />
+                <input
+                  type="email"
+                  placeholder="邮箱（可选）"
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="密码"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                />
+                <button className="btn btn-primary" onClick={handleRegister}>
+                  注册
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       {/* Header */}
@@ -584,6 +734,13 @@ export default function App() {
           >
             + 新建笔记
           </button>
+
+          <div className="user-info">
+            <span className="username">{user.username}</span>
+            <button className="btn btn-secondary" onClick={handleLogout}>
+              登出
+            </button>
+          </div>
         </div>
       </header>
 
